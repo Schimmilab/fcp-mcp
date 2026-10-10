@@ -2693,7 +2693,7 @@ def fcpxml_add_title(
         title_ref = "r_title"
         effect.set("id", title_ref)
         effect.set("name", "Basic Title")
-        effect.set("uid", ".../Titles.localized/Build In:Out.localized/Basic Title.localized/Basic Title.moti")
+        effect.set("uid", ".../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti")
 
     spine = mod.root.find(".//spine")
     if spine is None:
