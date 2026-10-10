@@ -44,7 +44,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "mcp>=2.0.0,<3",
+    "mcp>=2.0.0,<2.1",
     "pydantic>=2.12,<3",
     "platformdirs>=4.11,<5",
     "defusedxml>=0.7.1",
