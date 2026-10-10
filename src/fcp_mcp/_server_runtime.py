@@ -4,6 +4,7 @@ The most capable FCP MCP server: FCPXML engine + live FCP control + media analys
 """
 
 from __future__ import annotations
+import re
 
 import hashlib
 import json
@@ -4765,7 +4766,7 @@ def fcp_is_running() -> ToolOutcome[FCPRunningResult]:
     """Check if Final Cut Pro is currently running."""
     try:
         result = subprocess.run(
-            ["osascript", "-e", 'tell application "System Events" to (name of processes) contains "Final Cut Pro"'],
+            ["osascript", "-e", 'tell application "System Events" to exists (processes whose bundle identifier is "' + automation.fcp_bundle_id() + '")'],
             capture_output=True,
             text=True,
             timeout=5,
@@ -5065,7 +5066,7 @@ def fcp_import_xml(fcpxml_path: str) -> ToolOutcome[FCPImportXMLResult]:
     automation.require_live_control(CONFIG)
     path = _resolve_input(fcpxml_path, suffixes={".fcpxml"})
     try:
-        subprocess.run(["open", "-a", "Final Cut Pro", str(path)], check=True, timeout=10)
+        subprocess.run(["open", "-b", automation.fcp_bundle_id(), str(path)], check=True, timeout=10)
         text = f"Importing FCPXML: {path}"
         return _TextToolOutcome(
             text=text,
@@ -6032,6 +6033,8 @@ def media_detect_silence(
         noise_threshold: Noise floor threshold (e.g., "-30dB", "-40dB")
         min_duration: Minimum silence duration in seconds
     """
+    if not re.fullmatch(r"-?\d+(\.\d+)?dB", noise_threshold):
+        raise ValueError("noise_threshold muss wie '-30dB' aussehen (Zahl + dB)")
     from .media.ffprobe import detect_silence
 
     source = _resolve_input(path)

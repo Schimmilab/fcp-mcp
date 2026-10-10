@@ -1,4 +1,5 @@
 import json
+from fcp_mcp.automation import osascript as automation
 import os
 import subprocess
 from dataclasses import replace
@@ -468,7 +469,7 @@ def test_open_and_import_preserve_resolved_request_and_unverified_status(
     assert commands == [
         (["open", str(library.resolve())], {"check": True, "timeout": 10}),
         (
-            ["open", "-a", "Final Cut Pro", str(fcpxml.resolve())],
+            ["open", "-b", automation.fcp_bundle_id(), str(fcpxml.resolve())],
             {"check": True, "timeout": 10},
         ),
     ]

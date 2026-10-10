@@ -95,7 +95,8 @@ def _process_running(name: str) -> bool:
 
 
 def _fcp_check() -> tuple[DoctorCheck, bool, bool]:
-    application = Path("/Applications/Final Cut Pro.app")
+    from fcp_mcp.automation.osascript import FCP_APP_PATHS, fcp_bundle_id
+    application = FCP_APP_PATHS.get(fcp_bundle_id(), Path("/Applications/Final Cut Pro.app"))
     installed = application.is_dir()
     running = _process_running("Final Cut Pro") if installed else False
     if not installed:

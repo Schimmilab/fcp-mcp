@@ -1,13 +1,36 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from subprocess import CompletedProcess
+from pathlib import Path
 from typing import Literal
 
 from fcp_mcp.config import RuntimeConfig
 from fcp_mcp.contracts import ErrorCode, FCPMCPError
+
+# Final Cut Pro wird ueber die Bundle-ID angesprochen, nicht ueber den App-Namen: Die Ausgabe
+# "Final Cut Pro Creator Studio" (Bundle com.apple.FinalCutApp) ist unter "Final Cut Pro" fuer
+# AppleScript nicht auffindbar. Ueberschreibbar mit FCP_MCP_FCP_BUNDLE_ID.
+FCP_BUNDLE_CLASSIC = "com.apple.FinalCut"
+FCP_BUNDLE_CREATOR_STUDIO = "com.apple.FinalCutApp"
+FCP_APP_PATHS = {
+    FCP_BUNDLE_CREATOR_STUDIO: Path("/Applications/Final Cut Pro Creator Studio.app"),
+    FCP_BUNDLE_CLASSIC: Path("/Applications/Final Cut Pro.app"),
+}
+
+
+def fcp_bundle_id() -> str:
+    explicit = os.environ.get("FCP_MCP_FCP_BUNDLE_ID", "").strip()
+    if explicit:
+        return explicit
+    for bundle, path in FCP_APP_PATHS.items():
+        if path.exists():
+            return bundle
+    return FCP_BUNDLE_CLASSIC
+
 
 _MODIFIER_ALIASES = {
     "cmd": "command",
@@ -30,6 +53,7 @@ class OsaProgram:
     source: str
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "source", self.source.replace("__FCP_BUNDLE__", fcp_bundle_id()))
         if self.language not in {"AppleScript", "JavaScript"}:
             raise FCPMCPError(
                 ErrorCode.INVALID_ARGUMENTS,
@@ -41,7 +65,7 @@ FCP_LIBRARIES = OsaProgram(
     "JavaScript",
     """
 function run(argv) {
-    const fcp = Application("Final Cut Pro");
+    const fcp = Application("__FCP_BUNDLE__");
     const libraries = fcp.libraries();
     const result = [];
     for (let index = 0; index < libraries.length; index++) {
@@ -61,7 +85,7 @@ FCP_EVENTS = OsaProgram(
     """
 function run(argv) {
     const libraryName = argv.length ? argv[0] : "";
-    const fcp = Application("Final Cut Pro");
+    const fcp = Application("__FCP_BUNDLE__");
     const libraries = fcp.libraries();
     const result = [];
     for (let libraryIndex = 0; libraryIndex < libraries.length; libraryIndex++) {
@@ -87,7 +111,7 @@ FCP_PROJECTS = OsaProgram(
     """
 function run(argv) {
     const eventName = argv.length ? argv[0] : "";
-    const fcp = Application("Final Cut Pro");
+    const fcp = Application("__FCP_BUNDLE__");
     const libraries = fcp.libraries();
     const result = [];
     for (let libraryIndex = 0; libraryIndex < libraries.length; libraryIndex++) {
@@ -121,7 +145,7 @@ FCP_TIMELINE_INFO = OsaProgram(
     "JavaScript",
     """
 function run(argv) {
-    const fcp = Application("Final Cut Pro");
+    const fcp = Application("__FCP_BUNDLE__");
     const libraries = fcp.libraries();
     if (libraries.length === 0) {
         return JSON.stringify({error: "No libraries open"});
@@ -158,7 +182,7 @@ FCP_APP_STATE = OsaProgram(
     "JavaScript",
     """
 function run(argv) {
-    const fcp = Application("Final Cut Pro");
+    const fcp = Application("__FCP_BUNDLE__");
     return JSON.stringify({
         name: fcp.name(),
         version: fcp.version(),
@@ -173,10 +197,10 @@ FCP_EXPORT_XML = OsaProgram(
     "AppleScript",
     """
 on run argv
-    tell application "Final Cut Pro" to activate
+    tell application id "__FCP_BUNDLE__" to activate
     delay 0.5
     tell application "System Events"
-        tell process "Final Cut Pro"
+        tell (first process whose bundle identifier is "__FCP_BUNDLE__")
             click menu item "Export XML..." of menu "File" of menu bar 1
         end tell
     end tell
@@ -191,7 +215,7 @@ FCP_PLAYBACK = OsaProgram(
 on run argv
     set actionName to item 1 of argv
     set keyName to item 2 of argv
-    tell application "Final Cut Pro" to activate
+    tell application id "__FCP_BUNDLE__" to activate
     delay 0.3
     tell application "System Events"
         if actionName is "toggle" then
@@ -211,10 +235,10 @@ FCP_NAVIGATE = OsaProgram(
 on run argv
     set originalTimecode to item 1 of argv
     set cleanTimecode to item 2 of argv
-    tell application "Final Cut Pro" to activate
+    tell application id "__FCP_BUNDLE__" to activate
     delay 0.3
     tell application "System Events"
-        tell process "Final Cut Pro"
+        tell (first process whose bundle identifier is "__FCP_BUNDLE__")
             key code 35 using control down
             delay 0.3
             keystroke cleanTimecode
@@ -233,7 +257,7 @@ FCP_SELECT_TOOL = OsaProgram(
 on run argv
     set toolName to item 1 of argv
     set keyName to item 2 of argv
-    tell application "Final Cut Pro" to activate
+    tell application id "__FCP_BUNDLE__" to activate
     delay 0.2
     tell application "System Events" to keystroke keyName
     return "Tool: " & toolName
@@ -245,7 +269,7 @@ FCP_UNDO = OsaProgram(
     "AppleScript",
     """
 on run argv
-    tell application "Final Cut Pro" to activate
+    tell application id "__FCP_BUNDLE__" to activate
     delay 0.2
     tell application "System Events" to keystroke "z" using command down
     return "Undo performed"
@@ -257,7 +281,7 @@ FCP_REDO = OsaProgram(
     "AppleScript",
     """
 on run argv
-    tell application "Final Cut Pro" to activate
+    tell application id "__FCP_BUNDLE__" to activate
     delay 0.2
     tell application "System Events" to keystroke "z" using {command down, shift down}
     return "Redo performed"
@@ -276,10 +300,10 @@ on run argv
     set originalPath to item 2 of argv
     set menuName to item 3 of argv
     set parentItemName to item 4 of argv
-    tell application "Final Cut Pro" to activate
+    tell application id "__FCP_BUNDLE__" to activate
     delay 0.5
     tell application "System Events"
-        tell process "Final Cut Pro"
+        tell (first process whose bundle identifier is "__FCP_BUNDLE__")
             if argumentCount is 4 then
                 click menu item parentItemName of menu menuName of menu bar 1
             else
@@ -314,7 +338,7 @@ on run argv
             end if
         end repeat
     end if
-    tell application "Final Cut Pro" to activate
+    tell application id "__FCP_BUNDLE__" to activate
     delay 0.2
     tell application "System Events"
         if keyName is "space" then
@@ -344,10 +368,10 @@ FCP_SHARE = OsaProgram(
     "AppleScript",
     """
 on run argv
-    tell application "Final Cut Pro" to activate
+    tell application id "__FCP_BUNDLE__" to activate
     delay 0.5
     tell application "System Events"
-        tell process "Final Cut Pro"
+        tell (first process whose bundle identifier is "__FCP_BUNDLE__")
             if (count argv) > 0 and item 1 of argv is not "" then
                 set destinationName to item 1 of argv
                 click menu item destinationName of menu 1 of menu item "Share" of menu "File" of menu bar 1
